@@ -94,9 +94,30 @@ namespace NeuralNetwork1
                 }
             }
         }
+
+        public double LearningSpeed = 0.01;
+        private Node[] _sensors;
+        private Node[][] _layers;
+        private Node[] _outputs;
+
         public StudentNetwork(int[] structure)
         {
-            // TODO
+            _layers = new Node[structure.Length][];
+
+            _layers[0] = new Node[structure[0]];
+            for (int neuron = 0; neuron < structure[0]; neuron++)
+                _layers[0][neuron] = new Node(null);
+
+            _sensors = _layers[0];
+
+            for (int layer = 1; layer < structure.Length; layer++)
+            {
+                _layers[layer] = new Node[structure[layer]];
+                for (int neuron = 0; neuron < structure[layer]; neuron++)
+                    _layers[layer][neuron] = new Node(_layers[layer - 1]);
+            }
+
+            _outputs = _layers[_layers.Length - 1];
         }
 
         public override int Train(Sample sample, double acceptableError, bool parallel)
