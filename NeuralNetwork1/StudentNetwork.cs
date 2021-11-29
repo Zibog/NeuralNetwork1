@@ -101,16 +101,16 @@ namespace NeuralNetwork1
             /// <summary>
             /// Распространение ошибки на предыдущий слой и пересчёт весов. 
             /// </summary>
-            public void ErrorBackPropagation(double ita)
+            public void ErrorBackPropagation(double learningSpeed)
             {
                 Error *= Output * (1 - Output);
-                BiasWeight += ita * Error * BiasSignal;
+                BiasWeight += learningSpeed * Error * BiasSignal;
 
                 for (int i = 0; i < InputLayerSize; i++)
                     InputLayer[i].Error += Error * Weights[i];
 
                 for (int i = 0;i < InputLayerSize; i++)
-                    Weights[i] = ita * Error * InputLayer[i].Output;
+                    Weights[i] = learningSpeed * Error * InputLayer[i].Output;
 
                 Error = 0;
             }
@@ -160,35 +160,36 @@ namespace NeuralNetwork1
             for (int i = 0; i < _layers[lastIndex].Length; i++)
                 sample.Output[i] = _layers[lastIndex][i].Output;
 
-            // Обработка реакции сети на данный образ на основе вектора выходов сети
-            if (sample.error == null)
-                sample.error = new double[sample.Output.Length];
-
-            sample.recognizedClass = 0;
-            for (int i = 0; i < sample.Output.Length; i++)
-            {
-                sample.error[i] = (i == (int)sample.actualClass ? 1 : 0) - sample.Output[i];
-                if (sample.Output[i] > sample.Output[(int)sample.recognizedClass])
-                    sample.recognizedClass = (FigureType)i;
-            }
+            sample.ProcessPrediction(sample.Output);
         }
 
         /// <summary>
         /// Обратное распространение ошибки
         /// </summary>
-        private void BackPropagation(Sample sample, double ita)
+        private void BackPropagation(Sample sample, double learningSpeed)
         {
             for (int i = 0; i < _layers[_layers.Length - 1].Length; i++)
                 _layers[_layers.Length - 1][i].Error = sample.error[i];
 
             for (int i = _layers.Length - 1; i >= 0; i--)
                 for (int j = 0; j < _layers[i].Length; j++)
-                    _layers[i][j].ErrorBackPropagation(ita);
+                    _layers[i][j].ErrorBackPropagation(learningSpeed);
         }
 
         public override int Train(Sample sample, double acceptableError, bool parallel)
         {
-            throw new NotImplementedException();
+            var i = 0;
+            while (true)
+            {
+                Forward(sample);
+
+                if (sample.EstimatedError() < acceptableError && sample.Correct())
+                    return i;
+
+                BackPropagation(sample, LearningSpeed);
+
+                ++i;
+            }
         }
 
         public override double TrainOnDataSet(SamplesSet samplesSet, int epochsCount, double acceptableError, bool parallel)
