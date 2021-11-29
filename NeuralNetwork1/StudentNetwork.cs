@@ -92,6 +92,27 @@ namespace NeuralNetwork1
                 {
                     Charge += InputLayer[i].Output * Weights[i];
                 }
+
+                Output = 1 / (1 + Math.Exp(-Charge));
+
+                Charge = 0;
+            }
+
+            /// <summary>
+            /// Распространение ошибки на предыдущий слой и пересчёт весов. 
+            /// </summary>
+            public void ErrorBackPropagation(double ita)
+            {
+                Error *= Output * (1 - Output);
+                BiasWeight += ita * Error * BiasSignal;
+
+                for (int i = 0; i < InputLayerSize; i++)
+                    InputLayer[i].Error += Error * Weights[i];
+
+                for (int i = 0;i < InputLayerSize; i++)
+                    Weights[i] = ita * Error * InputLayer[i].Output;
+
+                Error = 0;
             }
         }
 
@@ -150,6 +171,19 @@ namespace NeuralNetwork1
                 if (sample.Output[i] > sample.Output[(int)sample.recognizedClass])
                     sample.recognizedClass = (FigureType)i;
             }
+        }
+
+        /// <summary>
+        /// Обратное распространение ошибки
+        /// </summary>
+        private void BackPropagation(Sample sample, double ita)
+        {
+            for (int i = 0; i < _layers[_layers.Length - 1].Length; i++)
+                _layers[_layers.Length - 1][i].Error = sample.error[i];
+
+            for (int i = _layers.Length - 1; i >= 0; i--)
+                for (int j = 0; j < _layers[i].Length; j++)
+                    _layers[i][j].ErrorBackPropagation(ita);
         }
 
         public override int Train(Sample sample, double acceptableError, bool parallel)
