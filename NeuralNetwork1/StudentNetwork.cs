@@ -121,6 +121,8 @@ namespace NeuralNetwork1
         private Node[][] _layers;
         private Node[] _outputs;
 
+        private const int MAGIC_CONSTANT = 100;
+
         public StudentNetwork(int[] structure)
         {
             _layers = new Node[structure.Length][];
@@ -178,23 +180,42 @@ namespace NeuralNetwork1
 
         public override int Train(Sample sample, double acceptableError, bool parallel)
         {
-            var i = 0;
-            while (true)
+            var i = 1;
+            do
             {
                 Forward(sample);
 
-                if (sample.EstimatedError() < acceptableError && sample.Correct())
+                if (sample.EstimatedError() > acceptableError && sample.Correct())
                     return i;
 
                 BackPropagation(sample, LearningSpeed);
 
                 ++i;
-            }
+            } while (sample.EstimatedError() > acceptableError);
+
+            return i;
         }
 
         public override double TrainOnDataSet(SamplesSet samplesSet, int epochsCount, double acceptableError, bool parallel)
         {
-            throw new NotImplementedException();
+            double desiredAccuracy;
+            do
+            {
+                desiredAccuracy = 0;
+
+                for (int i = 0; i < samplesSet.samples.Count; i++)
+                    if (Train(samplesSet.samples[i], acceptableError, parallel) == 0)
+                        ++desiredAccuracy;
+
+                desiredAccuracy /= samplesSet.samples.Count;
+
+                if (desiredAccuracy < acceptableError)
+                    return desiredAccuracy;
+
+                --epochsCount;
+            } while (epochsCount > 0);
+            
+            return desiredAccuracy;
         }
 
         protected override double[] Compute(double[] input)
