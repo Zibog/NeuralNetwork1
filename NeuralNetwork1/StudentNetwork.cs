@@ -120,6 +120,38 @@ namespace NeuralNetwork1
             _outputs = _layers[_layers.Length - 1];
         }
 
+        /// <summary>
+        /// Прямой проход
+        /// </summary>
+        private void Forward(Sample sample)
+        {
+            for (int i = 0; i < sample.input.Length; i++)
+                _sensors[i].Output = sample.input[i];
+
+            var lastIndex = _layers.Length - 1;
+
+            for (int i = 1; i < _layers.Length; i++)
+                for (int j = 0; j < _layers[i].Length; j++)
+                    _layers[i][j].Activate();
+
+            sample.Output = new double[_layers[lastIndex].Length];
+
+            for (int i = 0; i < _layers[lastIndex].Length; i++)
+                sample.Output[i] = _layers[lastIndex][i].Output;
+
+            // Обработка реакции сети на данный образ на основе вектора выходов сети
+            if (sample.error == null)
+                sample.error = new double[sample.Output.Length];
+
+            sample.recognizedClass = 0;
+            for (int i = 0; i < sample.Output.Length; i++)
+            {
+                sample.error[i] = (i == (int)sample.actualClass ? 1 : 0) - sample.Output[i];
+                if (sample.Output[i] > sample.Output[(int)sample.recognizedClass])
+                    sample.recognizedClass = (FigureType)i;
+            }
+        }
+
         public override int Train(Sample sample, double acceptableError, bool parallel)
         {
             throw new NotImplementedException();

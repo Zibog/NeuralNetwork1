@@ -49,7 +49,7 @@ namespace NeuralNetwork1
         /// <summary>
         /// Выходной вектор, задаётся извне как результат распознавания
         /// </summary>
-        public double[] Output { get; private set; }
+        public double[] Output { get; set; }
 
         /// <summary>
         /// Обработка реакции сети на данный образ на основе вектора выходов сети
