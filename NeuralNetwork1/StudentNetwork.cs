@@ -209,7 +209,7 @@ namespace NeuralNetwork1
 
                 desiredAccuracy /= samplesSet.samples.Count;
 
-                if (desiredAccuracy < acceptableError)
+                if (desiredAccuracy > acceptableError)
                     return desiredAccuracy;
 
                 --epochsCount;
