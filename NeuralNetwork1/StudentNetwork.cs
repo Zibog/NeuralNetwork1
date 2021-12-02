@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace NeuralNetwork1
 {
@@ -180,7 +181,7 @@ namespace NeuralNetwork1
 
         public override int Train(Sample sample, double acceptableError, bool parallel)
         {
-            var i = 1;
+            var i = 0;
             do
             {
                 Forward(sample);
@@ -220,7 +221,7 @@ namespace NeuralNetwork1
 
         protected override double[] Compute(double[] input)
         {
-            throw new NotImplementedException();
+            return _outputs.Select(n => n.Output).ToArray();
         }
     }
 }
