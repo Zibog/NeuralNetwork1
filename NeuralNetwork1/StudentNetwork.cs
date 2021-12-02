@@ -7,16 +7,20 @@ namespace NeuralNetwork1
     public class StudentNetwork : BaseNetwork
     {
         /// <summary>
-        /// Один нейрон сети
+        /// Нейрон сети
         /// </summary>
         private class Neuron
         {
-            public double Output; //выходной сигнал
-            public double Error; //ошибка
-            private double[] _inputWeights; //входные веса
-            private Neuron[] _prevLayer; //ссылка на предыдущий слой
-            
-            private static Random _rand = new Random(); //генератор случайных чисел
+            // Выходной сигнал
+            public double Output; 
+            // Ошибка
+            public double Error; 
+            // Входные веса
+            private double[] _inputWeights; 
+            // Предыдущий слой нейронов
+            private Neuron[] _prevLayer; 
+            // Генератор случайных чисел
+            private static Random _rand = new Random(); 
 
             /// <summary>
             /// Создание нейрона первого слоя (сенсора)
@@ -31,7 +35,7 @@ namespace NeuralNetwork1
             {
                 _prevLayer = neurons;
                 _inputWeights = new double[_prevLayer.Length];
-                //заполняем входные веса случайным образом от -1 до 1
+                // Заполнение входных весов случайным образом от -1 до 1
                 for (int i = 0; i < _prevLayer.Length; i++)
                     _inputWeights[i] = -1 + _rand.NextDouble() * 2;
             }
@@ -45,19 +49,20 @@ namespace NeuralNetwork1
                 for (int i = 0; i < _prevLayer.Length; i++)
                     weight += _prevLayer[i].Output * _inputWeights[i];
 
-                Output = 1 / (1 + Math.Exp(-weight)); //сигмоидальная передаточная функция
+                // Сигмоидальная передаточная функция
+                Output = 1 / (1 + Math.Exp(-weight)); 
             }
 
             public void ErrorBackPropagation()
             {
-                //обрабатываем ошибку в текущем нейроне
+                // Обновление ошибки в текущем нейроне
                 Error *= Output * (1 - Output);
 
-                //переносим ошибку на предыдущий слой
+                // Перенос ошибки на предыдущий слой
                 for (int i = 0; i < _prevLayer.Length; i++)
                     _prevLayer[i].Error += Error * _inputWeights[i];
 
-                //корректируем веса
+                // Корректировка весов
                 for (int i = 0; i < _prevLayer.Length; i++)
                     _inputWeights[i] += Error * _prevLayer[i].Output;
 
@@ -65,15 +70,18 @@ namespace NeuralNetwork1
             }
         }
 
-        private List<Neuron[]> neuronsLayers = new List<Neuron[]>(); //список слоев сети
+        // Список слоев сети
+        private List<Neuron[]> neuronsLayers = new List<Neuron[]>(); 
 
         public StudentNetwork(int[] structure)
         {
             for (int i = 0; i < structure.Length; i++)
             {
-                var neurons = new Neuron[structure[i]]; //создаем слой сети
+                // Слой сети
+                var neurons = new Neuron[structure[i]]; 
+                // Создаем нейроны
                 for (int j = 0; j < structure[i]; j++)
-                    neurons[j] = i == 0 ? new Neuron() : new Neuron(neuronsLayers[i - 1]); //создаем нейроны
+                    neurons[j] = i == 0 ? new Neuron() : new Neuron(neuronsLayers[i - 1]); 
                 neuronsLayers.Add(neurons);
             }
         }
@@ -83,28 +91,33 @@ namespace NeuralNetwork1
         /// </summary>
         private void Forward(Sample sample)
         {
+            // Перенос значения на входные нейроны
             for (int i = 0; i < sample.input.Length; i++)
-                neuronsLayers[0][i].Output = sample.input[i]; //переносим значения на сенсоры
+                neuronsLayers[0][i].Output = sample.input[i]; 
 
-            //Выполняем послойно вычисления передаточных функций
+            // Послойное вычисление передаточных функций
             for (int i = 1; i < neuronsLayers.Count; i++)
                 foreach (var neuron in neuronsLayers[i])
                     neuron.Activate();
 
+            // Перенос значений с последнего слоя в выход сети у образа
             for (int i = 0; i < neuronsLayers.Last().Length; i++)
-                sample.Output[i] = neuronsLayers.Last()[i].Output; //переносим значения с последнего слоя в вектор значений изображения
+                sample.Output[i] = neuronsLayers.Last()[i].Output; 
 
-            //sample.recognizedClass = Predict(sample);
-            sample.recognizedClass =
-                sample.ProcessPrediction(sample.Output);
+            // Обрабатываем перенесённые значения
+            sample.recognizedClass = sample.ProcessPrediction(sample.Output);
         }
 
+        /// <summary>
+        /// Прямой проход
+        /// </summary>
         private void Forward(double[] input)
         {
+            // Перенос значения на входные нейроны
             for (int i = 0; i < input.Length; i++)
-                neuronsLayers[0][i].Output = input[i]; //переносим значения на сенсоры
+                neuronsLayers[0][i].Output = input[i]; 
 
-            //Выполняем послойно вычисления передаточных функций
+            // Послойное вычисление передаточных функций
             for (int i = 1; i < neuronsLayers.Count; i++)
                 foreach (var neuron in neuronsLayers[i])
                     neuron.Activate();
@@ -115,11 +128,11 @@ namespace NeuralNetwork1
         /// </summary>
         void ErrorBackPropagation(Sample sample)
         {
-            //переносим ошибку из картинки на последний слой нейронов
+            // Перенос ошибки из образа на последний слой нейронов
             for (int i = 0; i < neuronsLayers.Last().Length; i++)
                 neuronsLayers.Last()[i].Error = sample.error[i];
 
-            //переносим ошибки от слоя к слою
+            // Распространение ошибки между слоями
             for (int i = neuronsLayers.Count - 1; i >= 1; i--)
                 foreach (var neuron in neuronsLayers[i])
                     neuron.ErrorBackPropagation();
@@ -128,7 +141,7 @@ namespace NeuralNetwork1
         public override int Train(Sample sample, double acceptableError, bool parallel)
         {
             int i = 0;
-            //запускаем сеть на примере до тех пор, пока правильно не распознается (максимум 100 раз)
+            // Запуск сети до тех пор, пока образ не будет распознан (максимум 100 раз)
             while (i < 100)
             {
                 Forward(sample);
@@ -136,8 +149,8 @@ namespace NeuralNetwork1
                 if (sample.EstimatedError() < acceptableError && sample.Correct()) 
                     return i;
 
-                //если мы здесь, значит ошибка распознавания (или слишком большая ошибка), запускаем алгоритм обратного распространения ошибки
                 i++;
+                // Ошибка распознавания или ошибка велика, запуск алгоритма обратного распространения ошибки
                 ErrorBackPropagation(sample);
             }
             return i;
@@ -146,26 +159,32 @@ namespace NeuralNetwork1
         public override double TrainOnDataSet(SamplesSet samplesSet, int epochsCount, double acceptableError, bool parallel)
         {
             var startTime = DateTime.Now;
+            // Точность распознавания
             double accuracy = 0;
-            var samplesLooked = 0; //сколько всего элементов было рассмотрено
-            double samplesCount = samplesSet.samples.Count * epochsCount; //сколько всего элементов нужно будет рассмотреть
+            // Количество уже рассмотренных элементов
+            var samplesLooked = 0; 
+            // Количество элементов к рассмотрению
+            double samplesCount = samplesSet.samples.Count * epochsCount; 
 
             while (epochsCount-- > 0)
             {
+                // Количество верных распознаваний
                 double correctAnswers = 0;
-                //перебираем весь датасет
+                
                 foreach (var sample in samplesSet.samples)
                 {
                     if (Train(sample, acceptableError, parallel) == 0) 
                         correctAnswers++;
                     samplesLooked++;
-                    if (samplesLooked % 25 == 0) //каждые 25 рассмотренных примеров обновляем индикатор прогресса
+                    // Индикатор прогресса обновляется каждые 25 проходов
+                    if (samplesLooked % 25 == 0)
                         OnTrainProgress(samplesLooked / samplesCount, accuracy, DateTime.Now - startTime);
                 }
 
-
-                accuracy = correctAnswers / samplesSet.samples.Count; //после конца каждой эпохи перессчитываем точность для передачи ее в форму
-                if (accuracy >= 1 - acceptableError - 1e-10) //если точность соответствует допустимой ошибке, выходим
+                // Пересчёт точности
+                accuracy = correctAnswers / samplesSet.samples.Count; 
+                // Если точность соответствует допустимой ошибке - выход
+                if (accuracy >= 1 - acceptableError - 1e-10) 
                 {
                     OnTrainProgress(1, accuracy, DateTime.Now - startTime);
                     return accuracy;
