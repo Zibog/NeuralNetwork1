@@ -27,7 +27,7 @@ namespace NeuralNetwork1
             public double error;
 
             /// <summary>
-            /// Сигнал поляризации (можно и 1 сделать в принципе)
+            /// Сигнал поляризации
             /// </summary>
             private const double BiasSignal = -1.0;
 
@@ -64,14 +64,14 @@ namespace NeuralNetwork1
             /// <summary>
             /// Ссылка на предыдущий слой нейронов 
             /// </summary>
-            private Node[] _inputLayer;
+            private Node[] _prevLayer;
 
             /// <summary>
-            /// Фиктивный нейрон.
+            /// Фиктивный нейрон
             /// </summary>
             public Node(Node[] prevLayerNodes)
             {
-                _inputLayer = prevLayerNodes;
+                _prevLayer = prevLayerNodes;
 
                 if (prevLayerNodes == null) return;
 
@@ -82,13 +82,13 @@ namespace NeuralNetwork1
             }
 
             /// <summary>
-            /// активация нейрона.
+            /// Активация нейрона
             /// </summary>
             public void Activate()
             {
                 _charge = _biasWeight * BiasSignal;
-                for (int i = 0; i < _inputLayer.Length; ++i)
-                    _charge += _inputLayer[i].output * _weights[i];
+                for (int i = 0; i < _prevLayer.Length; ++i)
+                    _charge += _prevLayer[i].output * _weights[i];
                 output = ActivationFunction(_charge);
                 
                 _charge = 0;
@@ -96,7 +96,7 @@ namespace NeuralNetwork1
 
 
             /// <summary>
-            /// Распространение ошибки на предыдущий слой и пересчёт весов. 
+            /// Распространение ошибки на предыдущий слой и пересчёт весов
             /// </summary>
             public void BackPropagation(double learningRate)
             {
@@ -104,10 +104,10 @@ namespace NeuralNetwork1
                 _biasWeight += learningRate * error * BiasSignal;
 
                 for (int i = 0; i < _inputLayerSize; i++)
-                    _inputLayer[i].error += error * _weights[i];
+                    _prevLayer[i].error += error * _weights[i];
 
                 for (int i = 0; i < _inputLayerSize; i++)
-                    _weights[i] += learningRate * error * _inputLayer[i].output;
+                    _weights[i] += learningRate * error * _prevLayer[i].output;
 
                 error = 0;
             }
@@ -118,23 +118,25 @@ namespace NeuralNetwork1
             private static double ActivationFunction(double value) => 1 / (1 + Math.Exp(-value));//Math.Atan(value);
         }
 
-        private double _learningSpeed = 0.01;
+        private const double LearningRate = 0.01;
         private Node[] _sensors;
         private Node[][] _layers;
         private Node[] _outputs;
 
         /// <summary>
-        /// Конструктор нейросети – с массивом, определяющим структуру сети
+        /// Конструктор нейросети
         /// </summary>
         public StudentNetwork(int[] structure)
         {
             _layers = new Node[structure.Length][];
 
+            // Обработка входного слоя
             _layers[0] = new Node[structure[0]];
             for (int neuron = 0; neuron < structure[0]; ++neuron)
                 _layers[0][neuron] = new Node(null);
             _sensors = _layers[0];
 
+            // Обработка остальных слоёв
             for (int layer = 1; layer < structure.Length; ++layer)
             {
                 _layers[layer] = new Node[structure[layer]];
@@ -158,10 +160,10 @@ namespace NeuralNetwork1
 
             sample.Output = new double[_layers[_layers.Length - 1].Length];
 
-            for (int i = 0; i < _layers[_layers.Length - 1].Length; i++)
+            for (int i = 0; i < sample.Output.Length; i++)
                 sample.Output[i] = _layers[_layers.Length - 1][i].output;
 
-            sample.recognizedClass = sample.ProcessPrediction(sample.Output);
+            sample.ProcessPrediction(sample.Output);
         }
 
         /// <summary>
@@ -197,7 +199,7 @@ namespace NeuralNetwork1
             {
                 for (int i = _layers.Length - 1; i >= 0; --i)
                     for (int j = 0; j < _layers[i].Length; ++j)
-                        _layers[i][j].BackPropagation(_learningSpeed);
+                        _layers[i][j].BackPropagation(LearningRate);
             });
         }
 
