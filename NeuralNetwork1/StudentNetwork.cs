@@ -1,206 +1,309 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace NeuralNetwork1
 {
     public class StudentNetwork : BaseNetwork
     {
         /// <summary>
-        /// Нейрон сети
+        /// Один нейрон сети
         /// </summary>
-        private class Neuron
+        private class Node
         {
-            // Выходной сигнал
-            public double Output; 
-            // Ошибка
-            public double Error; 
-            // Входные веса
-            private double[] _inputWeights; 
-            // Предыдущий слой нейронов
-            private Neuron[] _prevLayer; 
-            // Генератор случайных чисел
-            private static Random _rand = new Random(); 
+            /// <summary>
+            /// Входной взвешенный сигнал нейрона
+            /// </summary>
+            public double charge = 0;
 
             /// <summary>
-            /// Создание нейрона первого слоя (сенсора)
+            /// Выходной сигнал нейрона
             /// </summary>
-            public Neuron() { }
+            public double output = 0;
 
             /// <summary>
-            /// Создание нейронов второго и следующих слоев
+            /// Ошибка для данного нейрона
             /// </summary>
-            /// <param name="neurons">Ссылка на предыдущий слой</param>
-            public Neuron(Neuron[] neurons)
+            public double error = 0;
+
+            /// <summary>
+            /// Сигнал поляризации (можно и 1 сделать в принципе)
+            /// </summary>
+            public static double biasSignal = -1.0;
+
+            /// <summary>
+            /// Генератор для инициализации весов
+            /// </summary>
+            private static Random randGenerator = new Random();
+
+            /// <summary>
+            /// Минимальное значение для начальной инициализации весов
+            /// </summary>
+            private static double initMinWeight = -1;//-Math.PI / 2 //-1;
+
+            /// <summary>
+            /// Максимальное значение для начальной инициализации весов
+            /// </summary>
+            private static double initMaxWeight = 1;//Math.PI / 2; //1
+
+            /// <summary>
+            /// Количество узлов на предыдущем слое
+            /// </summary>
+            public int inputLayerSize = 0;
+
+            /// <summary>
+            /// Вектор входных весов нейрона
+            /// </summary>
+            public double[] weights = null;
+
+            /// <summary>
+            /// Вес на сигнале поляризации
+            /// </summary>
+            public double biasWeight = 0.01;
+
+            /// <summary>
+            /// Ссылка на предыдущий слой нейронов 
+            /// </summary>
+            public Node[] inputLayer = null;
+
+            /// <summary>
+            /// Фиктивный нейрон.
+            /// </summary>
+            public Node(Node[] prevLayerNodes)
             {
-                _prevLayer = neurons;
-                _inputWeights = new double[_prevLayer.Length];
-                // Заполнение входных весов случайным образом от -1 до 1
-                for (int i = 0; i < _prevLayer.Length; i++)
-                    _inputWeights[i] = -1 + _rand.NextDouble() * 2;
+                inputLayer = prevLayerNodes;
+
+                if (prevLayerNodes == null) return;
+
+                inputLayerSize = prevLayerNodes.Length;
+
+                weights = new double[inputLayerSize];
+
+                for (int i = 0; i < weights.Length; ++i)
+                {
+                    weights[i] = initMinWeight + randGenerator.NextDouble() * (initMaxWeight - initMinWeight);
+                }
+
             }
 
             /// <summary>
-            /// Вычисление передаточной функции
+            /// активация нейрона.
             /// </summary>
             public void Activate()
             {
-                double weight = 0;
-                for (int i = 0; i < _prevLayer.Length; i++)
-                    weight += _prevLayer[i].Output * _inputWeights[i];
 
-                // Сигмоидальная передаточная функция
-                Output = 1 / (1 + Math.Exp(-weight)); 
+                charge = biasWeight * biasSignal;
+                for (int i = 0; i < inputLayer.Length; ++i)
+                    charge += inputLayer[i].output * weights[i];
+
+                output = ActivationFunction(charge);
+
+                charge = 0;
             }
 
-            public void ErrorBackPropagation()
+
+            /// <summary>
+            /// Распространение ошибки на предыдущий слой и пересчёт весов. 
+            /// </summary>
+            public void BackpropError(double ita)
             {
-                // Обновление ошибки в текущем нейроне
-                Error *= Output * (1 - Output);
+                error *= output * (1 - output);
 
-                // Перенос ошибки на предыдущий слой
-                for (int i = 0; i < _prevLayer.Length; i++)
-                    _prevLayer[i].Error += Error * _inputWeights[i];
+                biasWeight += ita * error * biasSignal;
 
-                // Корректировка весов
-                for (int i = 0; i < _prevLayer.Length; i++)
-                    _inputWeights[i] += Error * _prevLayer[i].Output;
+                for (int i = 0; i < inputLayerSize; i++)
+                    inputLayer[i].error += error * weights[i];
 
-                Error = 0;
+                for (int i = 0; i < inputLayerSize; i++)
+                    weights[i] += ita * error * inputLayer[i].output;
+
+                error = 0;
+            }
+
+            /// <summary>
+            /// Функция активации
+            /// </summary>
+            public static double ActivationFunction(double inp)
+            {
+                return 1 / (1 + System.Math.Exp(-inp));//Math.Atan(inp);//1 / (1 + Math.Exp(-inp));
             }
         }
 
-        // Список слоев сети
-        private List<Neuron[]> neuronsLayers = new List<Neuron[]>(); 
+        public double LearningSpeed = 0.01;
+        private Node[] Sensors;
+        private Node[][] Layers;
+        private Node[] Outputs;
+        public Stopwatch stopWatch = new Stopwatch();
 
+        public void ReInit(int[] structure, double initialLearningRate = 0.25)
+        {
+            Layers = new Node[structure.Length][];
+
+            Layers[0] = new Node[structure[0]];
+            for (int neuron = 0; neuron < structure[0]; ++neuron)
+                Layers[0][neuron] = new Node(null);
+            Sensors = Layers[0];
+
+            for (int layer = 1; layer < structure.Length; ++layer)
+            {
+                Layers[layer] = new Node[structure[layer]];
+                for (int neuron = 0; neuron < structure[layer]; ++neuron)
+                    Layers[layer][neuron] = new Node(Layers[layer - 1]);
+            }
+            Outputs = Layers[Layers.Length - 1];
+        }
+
+        /// <summary>
+        /// Конструктор нейросети – с массивом, определяющим структуру сети
+        /// </summary>
         public StudentNetwork(int[] structure)
         {
-            for (int i = 0; i < structure.Length; i++)
-            {
-                // Слой сети
-                var neurons = new Neuron[structure[i]]; 
-                // Создаем нейроны
-                for (int j = 0; j < structure[i]; j++)
-                    neurons[j] = i == 0 ? new Neuron() : new Neuron(neuronsLayers[i - 1]); 
-                neuronsLayers.Add(neurons);
-            }
+            ReInit(structure);
         }
 
         /// <summary>
         /// Прямой проход
         /// </summary>
-        private void Forward(Sample sample)
+        public void Run(Sample image)
         {
-            // Перенос значения на входные нейроны
-            for (int i = 0; i < sample.input.Length; i++)
-                neuronsLayers[0][i].Output = sample.input[i]; 
+            for (int i = 0; i < image.input.Length; i++)
+                Sensors[i].output = image.input[i];
 
-            // Послойное вычисление передаточных функций
-            for (int i = 1; i < neuronsLayers.Count; i++)
-                foreach (var neuron in neuronsLayers[i])
-                    neuron.Activate();
+            for (int i = 1; i < Layers.Length; i++)
+                for (int j = 0; j < Layers[i].Length; j++)
+                    Layers[i][j].Activate();
 
-            // Перенос значений с последнего слоя в выход сети у образа
-            for (int i = 0; i < neuronsLayers.Last().Length; i++)
-                sample.Output[i] = neuronsLayers.Last()[i].Output; 
+            image.Output = new double[Layers[Layers.Length - 1].Length];
 
-            // Обрабатываем перенесённые значения
-            sample.recognizedClass = sample.ProcessPrediction(sample.Output);
+            for (int i = 0; i < Layers[Layers.Length - 1].Length; i++)
+                image.Output[i] = Layers[Layers.Length - 1][i].output;
+
+            image.recognizedClass = image.ProcessPrediction(image.Output);
         }
 
-        /// <summary>
-        /// Прямой проход
-        /// </summary>
-        private void Forward(double[] input)
+        public double[] Run(double[] input)
         {
-            // Перенос значения на входные нейроны
             for (int i = 0; i < input.Length; i++)
-                neuronsLayers[0][i].Output = input[i]; 
+                Sensors[i].output = input[i];
 
-            // Послойное вычисление передаточных функций
-            for (int i = 1; i < neuronsLayers.Count; i++)
-                foreach (var neuron in neuronsLayers[i])
-                    neuron.Activate();
+            for (int i = 1; i < Layers.Length; i++)
+            for (int j = 0; j < Layers[i].Length; j++)
+                Layers[i][j].Activate();
+
+            var output = new double[Layers[Layers.Length - 1].Length];
+
+            for (int i = 0; i < Layers[Layers.Length - 1].Length; i++)
+                output[i] = Layers[Layers.Length - 1][i].output;
+
+            return output;
         }
 
         /// <summary>
-        /// Алгоритм обратного распространения ошибки
+        /// Обратное распространение ошибки
         /// </summary>
-        void ErrorBackPropagation(Sample sample)
+        private void BackProp(Sample image, double ita)
         {
-            // Перенос ошибки из образа на последний слой нейронов
-            for (int i = 0; i < neuronsLayers.Last().Length; i++)
-                neuronsLayers.Last()[i].Error = sample.error[i];
+            for (int i = 0; i < Layers[Layers.Length - 1].Length; i++)
+                Layers[Layers.Length - 1][i].error = image.error[i];
 
-            // Распространение ошибки между слоями
-            for (int i = neuronsLayers.Count - 1; i >= 1; i--)
-                foreach (var neuron in neuronsLayers[i])
-                    neuron.ErrorBackPropagation();
+            var board = Layers.Length - 1;
+            Parallel.For(0, board, t =>
+            {
+            for (int i = Layers.Length - 1; i >= 0; --i)
+                for (int j = 0; j < Layers[i].Length; ++j)
+                    Layers[i][j].BackpropError(ita);
+            });
         }
 
+        /// <summary>
+        /// Распознавание одного образа
+        /// </summary>
+
+        public FigureType Predict(Sample sample)
+        {
+            if (sample.input[25] > sample.input[20])
+                return (FigureType)0;
+            else
+                return (FigureType)1;
+        }
+
+        /// <summary>
+        /// Обучение одному заданному образу
+        /// </summary>
         public override int Train(Sample sample, double acceptableError, bool parallel)
         {
-            int i = 0;
-            // Запуск сети до тех пор, пока образ не будет распознан (максимум 100 раз)
-            while (i < 100)
+            int iters = 0;
+            while (iters < 100)
             {
-                Forward(sample);
+                Run(sample);
 
-                if (sample.EstimatedError() < acceptableError && sample.Correct()) 
-                    return i;
+                Debug.WriteLine(sample.ToString());
+                Debug.WriteLine("Estimated error : " + sample.EstimatedError().ToString());
 
-                i++;
-                // Ошибка распознавания или ошибка велика, запуск алгоритма обратного распространения ошибки
-                ErrorBackPropagation(sample);
+
+                if (sample.EstimatedError() < 0.2 && sample.Correct())
+                {
+                    Debug.WriteLine("Time " + iters.ToString());
+                    return iters;
+                }
+
+                ++iters;
+                BackProp(sample, LearningSpeed);
             }
-            return i;
+            return iters;
         }
 
-        public override double TrainOnDataSet(SamplesSet samplesSet, int epochsCount, double acceptableError, bool parallel)
+        /// <summary>
+        /// Вектор выходных значений
+        /// </summary>
+        /// <returns></returns>
+        public double[] getOutput()
         {
-            var startTime = DateTime.Now;
-            // Точность распознавания
-            double accuracy = 0;
-            // Количество уже рассмотренных элементов
-            var samplesLooked = 0; 
-            // Количество элементов к рассмотрению
-            double samplesCount = samplesSet.samples.Count * epochsCount; 
+            return Outputs.Select(n => n.output).ToArray();
+        }
 
-            while (epochsCount-- > 0)
+        public override double TrainOnDataSet(SamplesSet samplesSet, int epochs_count, double acceptable_erorr, bool parallel = true)
+        {
+            double guessLevel = 0;
+            int epochs_num = 1;
+            while (epochs_num < epochs_count)
             {
-                // Количество верных распознаваний
-                double correctAnswers = 0;
-                
-                foreach (var sample in samplesSet.samples)
+                guessLevel = 0;
+                for (int i = 0; i < samplesSet.samples.Count; i++)
                 {
-                    if (Train(sample, acceptableError, parallel) == 0) 
-                        correctAnswers++;
-                    samplesLooked++;
-                    // Индикатор прогресса обновляется каждые 25 проходов
-                    if (samplesLooked % 25 == 0)
-                        OnTrainProgress(samplesLooked / samplesCount, accuracy, DateTime.Now - startTime);
+                    if (Train(samplesSet.samples.ElementAt(i), acceptable_erorr, parallel) == 0)
+                        guessLevel += 1;
                 }
-
-                // Пересчёт точности
-                accuracy = correctAnswers / samplesSet.samples.Count; 
-                // Если точность соответствует допустимой ошибке - выход
-                if (accuracy >= 1 - acceptableError - 1e-10) 
+                guessLevel /= samplesSet.samples.Count;
+                if (guessLevel > acceptable_erorr)
                 {
-                    OnTrainProgress(1, accuracy, DateTime.Now - startTime);
-                    return accuracy;
+                    stopWatch.Stop();
+                    return guessLevel;
                 }
-
-                OnTrainProgress(samplesLooked / samplesCount, accuracy, DateTime.Now - startTime);
+                epochs_num++;
             }
+            return guessLevel;
+        }
 
-            OnTrainProgress(1, accuracy, DateTime.Now - startTime);
-            return accuracy;
+        public double TestOnDataSet(SamplesSet testSet)
+        {
+            if (testSet.Count == 0) return double.NaN;
+
+            double guessLevel = 0;
+            for (int i = 0; i < testSet.Count; ++i)
+            {
+                Sample s = testSet.samples.ElementAt(i);
+                Predict(s);
+                if (s.Correct()) guessLevel += 1;
+            }
+            return guessLevel / testSet.Count;
         }
 
         protected override double[] Compute(double[] input)
         {
-            Forward(input);
-            return neuronsLayers.Last().Select(neuron => neuron.Output).ToArray();
+            return Run(input);
         }
     }
 }
